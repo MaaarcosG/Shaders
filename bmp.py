@@ -297,13 +297,11 @@ class Bitmap(object):
 		#Coordenadas barycentricas
 		w,u,v = kwargs['bary']
 		#Coordenadas x e y
-		x,y = ['xy']
+		A,B,C = ['triangle']
 		#Coordenadas de las texturas
-		tA, tB, tC = kwargs['tc']
+		tA, tB, tC = kwargs['textureC']
 		#Vectores normales
 		nA, nB, nC = ['varing_normals']
-		#Se toma la luz
-		ligth = ['ligth']
 		#Datos barycentricas con los vectores normales
 		nx = nA.x * w + nB.x * v + nC.x * u
 		ny = nA.y * w + nB.y * v + nC.y * u
@@ -318,7 +316,7 @@ class Bitmap(object):
 		c = int(255 * intensity) if 255 * intensity > 0 else 0
 		return bytes([a,b,c])
 
-	def triangulos(self, A, B, C, laLuz, color=None,texture=None, tc=(), intensity=1, nc=()):
+	def triangulos(self, A, B, C, color=None, texture=None, tc=(),snc=()):
 		bbox_min, bbox_max = bbox(A,B,C)
 		for x in range(bbox_min.x, bbox_max.x + 1):
 			for y in range(bbox_min.y, bbox_max.y + 1):
@@ -330,16 +328,14 @@ class Bitmap(object):
 				#Condicion de color
 				if color:
 					self.vertexColor = color
-				'''
-				Metodo de gourad
+				#Metodo de gourad
 				coloring = self.shaders(
-					xy = (x,y),
+					triangle = (A,B,C),
 					bary = (w,v,u),
 					varing_normals = nc,
-					ligth = laLuz
+					textureC = tc
 				)
 				self.vertexColor = coloring
-				'''
 				#Si encuentra un archivo de textura
 				if texture:
 					tA, tB, tC = texture_coords
@@ -473,11 +469,6 @@ class Bitmap(object):
 		self.lookAt(ojo, arriba, centro)
 		#Llamamos la funcion necesaria
 		self.ViewPortMatriz()
-		#Verificamos si existe un archivo para la textura
-		if texture == None:
-			pass
-		else:
-			textura = Texture(texture)
 		#Archivo mtlFile
 		if mtlFile:
 			mtl = Mtl(mtlFile)
@@ -495,7 +486,8 @@ class Bitmap(object):
 		#Datos para reccorer el Ciclo
 		caras = objetos.faces
 		vertexes = objetos.vertices
-		nver = objetos.vn
+		nver = objetos.vt
+		normaV = objetos.vn
 		for face in caras:
 			vcount = len(face)
 			#print(vcount)
@@ -511,6 +503,25 @@ class Bitmap(object):
 				print('1', a)
 				print('2', b)
 				print('3', c)
+				'''
+				#Valores Normales
+				n1 = face[0][2] - 1
+				n2 = face[1][2] - 1
+				n3 = face[2][2] - 1
+				nA = V3(*normaV[n1])
+				nB = V3(*normaV[n2])
+				nC = V3(*normaV[n3])
+				#Valores de las texturas
+				t1 = face[0][1] - 1
+				t2 = face[1][1] - 1
+				t3 = face[2][1] - 1
+				tA = V3(*nver[t1])
+				tB = V3(*nver[t2])
+				tC = V3(*nver[t3])
+				'''
+				triangulos(self, A, B, C, laLuz, color=None,texture=None, tc=(), intensity=1, nc=())
+				'''
+				self.triangulos(a,b,c, tc=(tA, tB, tC), nc=(nA, nB, nC))
 				'''
 				#Por si no existe un archivo de texturas
 				vector_normal = norm(cross(sub(b,a), sub(c,a)))
@@ -535,3 +546,24 @@ class Bitmap(object):
 					Texture_C = V3(*objetos.textVert[t3],0)
 					#Mandamos los datos al triangulos
 					self.triangulos(Texture_A,Texture_B,Texture_C, color(), None, texture=textura, tc=(Texture_A,Texture_B,Texture_C), intensity=intensidad)
+				'''
+			else:
+				f1 = face[0][0] - 1
+				f2 = face[1][0] - 1
+				f3 = face[2][0] - 1
+				f4 = face[3][0] - 1
+				vertices = [
+					self.transform(vertexes[f1], translate, scale),
+					self.transform(vertexes[f2], translate, scale),
+					self.transform(vertexes[f3], translate, scale),
+					self.transform(vertexes[f4], translate, scale)
+				]
+				normal = norm(cross(sub(vertices[0], vertices[1]), sub(vertices[1], vertices[2])))  # no necesitamos dos normales!!
+				intensity = dot(normal, light)
+				grey = round(255 * intensity)
+				if grey < 0:
+					continue
+
+				A, B, C, D = vertices
+				self.triangulos(A, B, C, color(grey, grey, grey))
+				self.triangulos(A, C, D, color(grey, grey, grey))
